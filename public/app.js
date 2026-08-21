@@ -39,6 +39,117 @@
     return window.location.origin;
   }
 
+  // ---------------- Figma Make style battle effects ----------------
+  let shotEffectId = 0;
+  let turnBannerTimer = null;
+
+  function showTurnBanner(title, sub, tone = 'blue') {
+    const banner = $('#turn-banner');
+    const main = $('#turn-banner-main');
+    const titleEl = $('#turn-banner-title');
+    const subEl = $('#turn-banner-sub');
+    if (!banner || !main) return;
+
+    clearTimeout(turnBannerTimer);
+    banner.dataset.tone = tone;
+    titleEl.textContent = title;
+    subEl.textContent = sub;
+    banner.hidden = false;
+    banner.classList.remove('turn-banner-play');
+    void banner.offsetWidth;
+    banner.classList.add('turn-banner-play');
+    turnBannerTimer = setTimeout(() => {
+      banner.hidden = true;
+      banner.classList.remove('turn-banner-play');
+    }, 1900);
+  }
+
+  function shotPoint(grid, x, y) {
+    const cell = gridCell(grid.id, x, y);
+    if (!cell) return null;
+    return {
+      x: cell.offsetLeft + cell.offsetWidth / 2,
+      y: cell.offsetTop + cell.offsetHeight / 2,
+    };
+  }
+
+  function makeParticle(className, vars = {}) {
+    const el = document.createElement('i');
+    el.className = className;
+    Object.entries(vars).forEach(([key, value]) => el.style.setProperty(key, value));
+    return el;
+  }
+
+  function showShotEffect(gridId, x, y, isHit) {
+    const grid = $(`#${gridId}`);
+    if (!grid) return;
+    const point = shotPoint(grid, x, y);
+    if (!point) return;
+
+    const effect = document.createElement('div');
+    effect.className = `shot-effect ${isHit ? 'shot-explosion' : 'shot-splash'}`;
+    effect.dataset.effectId = String(++shotEffectId);
+    effect.style.left = `${point.x}px`;
+    effect.style.top = `${point.y}px`;
+
+    if (isHit) {
+      // Big flash + multiple shockwaves + fire/debris/smoke, matching Figma Make.
+      effect.innerHTML = `
+        <span class="explosion-flash"></span>
+        <span class="explosion-ring r1"></span>
+        <span class="explosion-ring r2"></span>
+        <span class="explosion-ring r3"></span>
+        <span class="explosion-core"></span>
+        <span class="explosion-hit-x">×</span>
+      `;
+      for (let i = 0; i < 22; i++) {
+        const a = (i / 22) * Math.PI * 2 + Math.random() * .2;
+        const d = 22 + Math.random() * 42;
+        effect.appendChild(makeParticle('explosion-particle', {
+          '--ex': `${Math.cos(a) * d}px`,
+          '--ey': `${Math.sin(a) * d}px`,
+          '--delay': `${Math.random() * .1}s`,
+          '--dur': `${.5 + Math.random() * .4}s`,
+          '--size': `${3 + Math.random() * 7}px`,
+        }));
+      }
+      for (let i = 0; i < 8; i++) {
+        effect.appendChild(makeParticle('explosion-smoke', {
+          '--sx': `${(i - 3.5) * 9}px`,
+          '--delay': `${.05 + i * .07}s`,
+          '--size': `${16 + Math.random() * 18}px`,
+        }));
+      }
+    } else {
+      effect.innerHTML = `
+        <span class="splash-column main"></span>
+        <span class="splash-column left"></span>
+        <span class="splash-column right"></span>
+        <span class="splash-ring sr1"></span>
+        <span class="splash-ring sr2"></span>
+        <span class="splash-ring sr3"></span>
+        <span class="splash-foam"></span>
+      `;
+      const colors = ['#7ec8f0', '#5ab0e0', '#9adcff', '#4a9fd4', '#b8eaff'];
+      for (let i = 0; i < 18; i++) {
+        const a = (i / 18) * Math.PI * 2 + Math.random() * .3;
+        const d = 15 + Math.random() * 30;
+        effect.appendChild(makeParticle('splash-drop', {
+          '--tx': `${Math.cos(a) * d}px`,
+          '--ty': `${-(30 + Math.random() * 50)}px`,
+          '--delay': `${Math.random() * .15}s`,
+          '--dur': `${.6 + Math.random() * .4}s`,
+          '--size': `${2 + Math.random() * 5}px`,
+          '--drop-color': colors[i % colors.length],
+        }));
+      }
+    }
+
+    grid.appendChild(effect);
+    const duration = isHit ? 1450 : 1150;
+    setTimeout(() => effect.remove(), duration);
+  }
+
   // ---------------- Auth screen ----------------
   $$('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -179,6 +290,11 @@
       buildBattleScreen();
       setTurnIndicator();
       showScreen('screen-battle');
+      showTurnBanner(
+        yourTurn ? 'LƯỢT CỦA BẠN' : 'LƯỢT ĐỐI THỦ',
+        yourTurn ? 'Click vào vùng biển địch để tấn công' : `${opponent} đang chuẩn bị tấn công...`,
+        yourTurn ? 'blue' : 'orange'
+      );
     });
 
     s.on('fire_result', (result) => handleFireResult(result));
@@ -513,6 +629,7 @@
     if (cell) {
       cell.classList.remove('ship-preview');
       cell.classList.add(isHit ? 'hit' : 'miss');
+      showShotEffect(gridId, x, y, isHit);
     }
 
     // When a ship is fully sunk, remove every persistent red hit marker from
@@ -534,6 +651,11 @@
       if (!isHit) {
         // Turn passes to the opponent only on a miss.
         state.myTurn = firedBy !== 'you';
+        if (state.myTurn) {
+          showTurnBanner('LƯỢT CỦA BẠN', 'Đến lượt bạn — chọn mục tiêu để khai hỏa', 'blue');
+        } else {
+          showTurnBanner('LƯỢT ĐỐI THỦ', 'Đối thủ đang tấn công hạm đội của bạn...', 'orange');
+        }
       } else if (firedBy === 'you') {
         // A hit earns another shot.
         state.myTurn = true;
