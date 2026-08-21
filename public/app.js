@@ -651,11 +651,15 @@
       if (!isHit) {
         // Turn passes to the opponent only on a miss.
         state.myTurn = firedBy !== 'you';
-        if (state.myTurn) {
-          showTurnBanner('LƯỢT CỦA BẠN', 'Đến lượt bạn — chọn mục tiêu để khai hỏa', 'blue');
-        } else {
-          showTurnBanner('LƯỢT ĐỐI THỦ', 'Đối thủ đang tấn công hạm đội của bạn...', 'orange');
-        }
+        // Delay the full-screen turn banner so the water-splash effect from
+        // the miss has time to play out first, instead of being covered.
+        setTimeout(() => {
+          if (state.myTurn) {
+            showTurnBanner('LƯỢT CỦA BẠN', 'Đến lượt bạn — chọn mục tiêu để khai hỏa', 'blue');
+          } else {
+            showTurnBanner('LƯỢT ĐỐI THỦ', 'Đối thủ đang tấn công hạm đội của bạn...', 'orange');
+          }
+        }, 1500);
       } else if (firedBy === 'you') {
         // A hit earns another shot.
         state.myTurn = true;
