@@ -388,10 +388,13 @@ main {
 .board-labels-y span { display: flex; align-items: center; justify-content: center; }
 
 .grid {
+  --cell-size: 34px;
+  --cell-gap: 2px;
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(10, 34px);
-  grid-template-rows: repeat(10, 34px);
-  gap: 2px;
+  grid-template-columns: repeat(10, var(--cell-size));
+  grid-template-rows: repeat(10, var(--cell-size));
+  gap: var(--cell-gap);
   background: var(--abyss);
   padding: 2px;
   border: 1px solid var(--line);
@@ -420,27 +423,12 @@ main {
 
 /* ---- Ship hulls: drawn per cell as connected capsule segments ---- */
 .cell.ship {
-  --ship-fill: #8fa3ad;
-  --ship-fill-2: #5c7481;
-  background: linear-gradient(180deg, var(--ship-fill), var(--ship-fill-2));
-  border-color: rgba(232, 238, 233, 0.3);
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.45);
+  background: rgba(90, 110, 120, 0.10);
+  border-color: rgba(232, 238, 233, 0.10);
   z-index: 1;
 }
 
-.cell.ship::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: rgba(232, 238, 233, 0.4);
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
-}
-.cell.ship.ship-start::before, .cell.ship.ship-end::before { opacity: 0.7; }
+.cell.ship::before { display: none; }
 
 .cell.ship.ship-h.ship-start { border-top-left-radius: 15px; border-bottom-left-radius: 15px; }
 .cell.ship.ship-h.ship-end { border-top-right-radius: 15px; border-bottom-right-radius: 15px; }
@@ -452,6 +440,25 @@ main {
 .cell.ship[data-ship="Cruiser"] { --ship-fill: #6a97b6; --ship-fill-2: #3f5f78; }
 .cell.ship[data-ship="Submarine"] { --ship-fill: #4a6076; --ship-fill-2: #212f3d; }
 .cell.ship[data-ship="Destroyer"] { --ship-fill: #9aa3aa; --ship-fill-2: #5c646b; }
+
+.ship-visual {
+  position: absolute;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 1;
+  transition: opacity 0.25s ease, filter 0.25s ease;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.65));
+}
+.ship-visual.sunk {
+  animation: shipReveal 0.65s ease-out;
+  filter: drop-shadow(0 0 10px rgba(228,87,46,0.85)) drop-shadow(0 3px 8px rgba(0,0,0,0.75));
+}
+.ship-visual svg { display: block; overflow: visible; }
+@keyframes shipReveal {
+  0% { opacity: 0; transform: scale(0.75); }
+  55% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
 
 /* ---- Hit: explosion burst + persistent mark ---- */
 .cell.hit {
@@ -473,7 +480,7 @@ main {
   animation: hitBurst 0.55s ease-out forwards;
   pointer-events: none;
 }
-.cell.hit::after {
+.cell.hit:not([data-sunk="true"])::after {
   content: '✕';
   color: var(--abyss);
   font-weight: 700;
@@ -677,7 +684,7 @@ main {
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 720px) {
-  .grid { grid-template-columns: repeat(10, 28px); grid-template-rows: repeat(10, 28px); }
+  .grid { --cell-size: 28px; --cell-gap: 2px; grid-template-columns: repeat(10, var(--cell-size)); grid-template-rows: repeat(10, var(--cell-size)); }
   .board-labels-x { grid-template-columns: repeat(10, 28px); margin-left: 20px; }
   .board-labels-y { grid-template-rows: repeat(10, 28px); }
   .battle-boards { gap: 24px; }

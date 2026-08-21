@@ -181,10 +181,12 @@ io.on('connection', (socket) => {
     if (isHit) oppBoard.cellsRemaining.delete(key);
 
     let sunkShip = null;
+    let sunkShipCells = null;
     if (isHit) {
       const ship = oppBoard.ships.find((s) => s.cells.some((c) => c[0] === x && c[1] === y));
       if (ship && ship.cells.every((c) => oppBoard.shotsReceived.has(`${c[0]},${c[1]}`))) {
         sunkShip = ship.name;
+        sunkShipCells = ship.cells;
       }
     }
 
@@ -196,6 +198,7 @@ io.on('connection', (socket) => {
         y,
         isHit,
         sunkShip,
+        sunkShipCells,
         gameOver,
         firedBy: i === idx ? 'you' : 'opponent',
         // Once the fleet is fully sunk, reveal its layout so both players
