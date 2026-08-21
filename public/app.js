@@ -689,91 +689,412 @@
   // Draws a top-down ship similar to the Figma Make design. The SVG is an
   // overlay spanning the occupied cells, so the grid remains interactive.
   function addShipVisual(gridId, shipName, cells, sunk) {
-    if (!Array.isArray(cells) || !cells.length) return;
-    const grid = $(`#${gridId}`);
-    if (!grid) return;
+  if (!Array.isArray(cells) || !cells.length) return;
 
-    const old = grid.querySelector(`.ship-visual[data-ship-name="${shipName}"]`);
-    if (old) old.remove();
+  const grid = $(`#${gridId}`);
+  if (!grid) return;
 
-    const horizontal = cells.every((c) => c[1] === cells[0][1]);
-    const sorted = horizontal
-      ? [...cells].sort((a, b) => a[0] - b[0])
-      : [...cells].sort((a, b) => a[1] - b[1]);
-    const minX = Math.min(...cells.map((c) => c[0]));
-    const minY = Math.min(...cells.map((c) => c[1]));
-    const len = cells.length;
+  // Xóa hình tàu cũ của cùng con tàu
+  const old = grid.querySelector(
+    `.ship-visual[data-ship-name="${shipName}"]`
+  );
 
-    const styles = getComputedStyle(grid);
-    const cellSize = parseFloat(styles.getPropertyValue('--cell-size')) || 34;
-    const gap = parseFloat(styles.getPropertyValue('--cell-gap')) || 2;
-    const pad = parseFloat(styles.paddingLeft) || 2;
-    const totalW = horizontal ? len * cellSize + (len - 1) * gap : cellSize;
-    const totalH = horizontal ? cellSize : len * cellSize + (len - 1) * gap;
-    const id = `ship-${gridId}-${shipName}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  if (old) old.remove();
 
-    const palette = shipPalette(shipName);
-    const bodyW = (horizontal ? totalH : totalW) * 0.72;
-    const shipLen = horizontal ? totalW : totalH;
-    const shipH = horizontal ? totalH : totalW;
-    const halfW = shipH * 0.72 / 2;
-    const midY = shipH / 2;
-    const bowX = shipLen;
-    const bodyStart = shipLen * 0.18;
-    const hullPath = `M ${bowX} ${midY} L ${bodyStart} ${midY - halfW} L 0 ${midY - halfW * 0.65} L 0 ${midY + halfW * 0.65} L ${bodyStart} ${midY + halfW} Z`;
-    const supStart = shipLen * 0.22;
-    const supEnd = shipLen * 0.70;
-    const supW = shipH * 0.42;
-    const supPath = `M ${supStart + supW * 0.4} ${midY - supW / 2} L ${supEnd} ${midY - supW / 2.5} L ${supEnd} ${midY + supW / 2.5} L ${supStart + supW * 0.4} ${midY + supW / 2} L ${supStart} ${midY + supW / 2.2} L ${supStart} ${midY - supW / 2.2} Z`;
-    const brX = shipLen * 0.55;
-    const brW = shipH * 0.12;
-    const brH = shipH * 0.28;
-    const turrets = len >= 3 ? `<circle cx="${shipLen * 0.78}" cy="${midY}" r="${shipH * 0.12}" fill="${palette.deck}" stroke="${palette.stripe}" stroke-width="0.8"/><rect x="${shipLen * 0.78}" y="${midY - 1}" width="${shipH * 0.18}" height="2" fill="${palette.stripe}" rx="1"/>` : '';
-    const turret2 = len >= 4 ? `<circle cx="${shipLen * 0.88}" cy="${midY}" r="${shipH * 0.1}" fill="${palette.deck}" stroke="${palette.stripe}" stroke-width="0.7"/><rect x="${shipLen * 0.88}" y="${midY - 1}" width="${shipH * 0.14}" height="2" fill="${palette.stripe}" rx="1"/>` : '';
-    const portholes = Array.from({ length: Math.max(0, len - 1) }, (_, i) => {
-      const px = bodyStart + (i + 0.7) * (shipLen * 0.70 - bodyStart) / len;
-      return `<circle cx="${px}" cy="${midY - shipH * 0.15}" r="2.3" fill="${palette.hull}"/><circle cx="${px}" cy="${midY - shipH * 0.15}" r="1.3" fill="${palette.window}"/><circle cx="${px}" cy="${midY + shipH * 0.15}" r="2.3" fill="${palette.hull}"/><circle cx="${px}" cy="${midY + shipH * 0.15}" r="1.3" fill="${palette.window}"/>`;
-    }).join('');
+  // Xác định hướng tàu
+  const horizontal = cells.every(
+    ([x, y]) => y === cells[0][1]
+  );
 
-    const svgW = horizontal ? totalW : totalH;
-    const svgH = horizontal ? totalH : totalW;
-    const transform = horizontal ? '' : `rotate(90 ${svgW / 2} ${svgH / 2}) translate(${(svgH - svgW) / 2} ${(svgW - svgH) / 2})`;
-    const visual = document.createElement('div');
-    visual.className = 'ship-visual';
-    visual.dataset.shipName = shipName;
-    visual.style.left = `${pad + minX * (cellSize + gap)}px`;
-    visual.style.top = `${pad + minY * (cellSize + gap)}px`;
-    visual.style.width = `${svgW}px`;
-    visual.style.height = `${svgH}px`;
-    visual.innerHTML = `
-      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" aria-hidden="true">
-        <defs>
-          <linearGradient id="${id}-hull" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${palette.stripe}"/>
-            <stop offset="35%" stop-color="${palette.deck}"/>
-            <stop offset="100%" stop-color="${palette.shadow}"/>
-          </linearGradient>
-          <linearGradient id="${id}-sup" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${palette.window}" stop-opacity="0.6"/>
-            <stop offset="100%" stop-color="${palette.deck}"/>
-          </linearGradient>
-        </defs>
-        <g transform="${transform}">
-          <path d="${hullPath}" fill="${palette.shadow}" transform="translate(2,3)" opacity="0.55"/>
-          <path d="${hullPath}" fill="url(#${id}-hull)" stroke="${palette.hull}" stroke-width="1"/>
-          <path d="${hullPath}" fill="none" stroke="${palette.stripe}" stroke-width="1" opacity="0.45" transform="scale(1,0.55) translate(0,${shipH * 0.41})"/>
-          <path d="${supPath}" fill="url(#${id}-sup)" stroke="${palette.hull}" stroke-width="0.8" opacity="0.95"/>
-          <rect x="${brX - brW / 2}" y="${midY - brH / 2}" width="${brW}" height="${brH}" rx="2" fill="${palette.deck}" stroke="${palette.stripe}" stroke-width="0.7"/>
-          <rect x="${brX - brW / 2 + 2}" y="${midY - brH / 2 + 2}" width="${Math.max(1, brW - 4)}" height="${brH * 0.45}" rx="1" fill="${palette.window}" opacity="0.85"/>
-          ${turrets}${turret2}${portholes}
-          <line x1="${brX}" y1="${midY - brH / 2}" x2="${brX}" y2="${midY - brH / 2 - shipH * 0.3}" stroke="${palette.stripe}" stroke-width="1.2" opacity="0.75"/>
-          <circle cx="${brX}" cy="${midY - brH / 2 - shipH * 0.3}" r="1.5" fill="${palette.window}"/>
-        </g>
-      </svg>`;
-    grid.appendChild(visual);
+  const minX = Math.min(...cells.map(([x]) => x));
+  const minY = Math.min(...cells.map(([, y]) => y));
 
-    if (sunk) visual.classList.add('sunk');
+  const len = cells.length;
+
+  const styles = getComputedStyle(grid);
+
+  const cellSize =
+    parseFloat(styles.getPropertyValue('--cell-size')) || 34;
+
+  const gap =
+    parseFloat(styles.getPropertyValue('--cell-gap')) || 2;
+
+  const pad =
+    parseFloat(styles.paddingLeft) || 2;
+
+  /*
+   * Kích thước vùng mà con tàu chiếm trên grid.
+   *
+   * QUAN TRỌNG:
+   * - horizontal: width = chiều dài tàu
+   * - vertical:   height = chiều dài tàu
+   *
+   * SVG bên trong luôn được vẽ theo hướng ngang.
+   * Nếu là tàu dọc thì chỉ xoay SVG 90 độ.
+   */
+
+  const shipWidth = horizontal
+    ? len * cellSize + (len - 1) * gap
+    : cellSize;
+
+  const shipHeight = horizontal
+    ? cellSize
+    : len * cellSize + (len - 1) * gap;
+
+  /*
+   * SVG luôn có hình dạng ngang.
+   *
+   * Khi tàu dọc:
+   *
+   * SVG:
+   * ─────────────
+   *
+   * sẽ được CSS:
+   *
+   *      │
+   *      │
+   *      │
+   *
+   * xoay 90 độ.
+   */
+
+  const svgWidth = horizontal ? shipWidth : shipHeight;
+  const svgHeight = horizontal ? shipHeight : shipWidth;
+
+  const shipLen = svgWidth;
+  const shipH = svgHeight;
+
+  const midY = shipH / 2;
+
+  const palette = shipPalette(shipName);
+
+  const id =
+    `ship-${gridId}-${shipName}-${Date.now()}-` +
+    Math.random().toString(36).slice(2, 7);
+
+  // ---------------- HULL ----------------
+
+  const halfW = shipH * 0.36;
+
+  const bowX = shipLen;
+
+  const bodyStart = shipLen * 0.18;
+
+  const hullPath = `
+    M ${bowX} ${midY}
+
+    L ${bodyStart} ${midY - halfW}
+
+    L 0 ${midY - halfW * 0.65}
+
+    L 0 ${midY + halfW * 0.65}
+
+    L ${bodyStart} ${midY + halfW}
+
+    Z
+  `;
+
+  // ---------------- SUPERSTRUCTURE ----------------
+
+  const supStart = shipLen * 0.22;
+  const supEnd = shipLen * 0.70;
+
+  const supW = shipH * 0.42;
+
+  const supPath = `
+    M ${supStart + supW * 0.4} ${midY - supW / 2}
+
+    L ${supEnd} ${midY - supW / 2.5}
+
+    L ${supEnd} ${midY + supW / 2.5}
+
+    L ${supStart + supW * 0.4} ${midY + supW / 2}
+
+    L ${supStart} ${midY + supW / 2.2}
+
+    L ${supStart} ${midY - supW / 2.2}
+
+    Z
+  `;
+
+  // ---------------- BRIDGE ----------------
+
+  const brX = shipLen * 0.55;
+
+  const brW = shipH * 0.12;
+  const brH = shipH * 0.28;
+
+  // ---------------- TURRETS ----------------
+
+  const turrets =
+    len >= 3
+      ? `
+        <circle
+          cx="${shipLen * 0.78}"
+          cy="${midY}"
+          r="${shipH * 0.12}"
+          fill="${palette.deck}"
+          stroke="${palette.stripe}"
+          stroke-width="0.8"
+        />
+
+        <rect
+          x="${shipLen * 0.78}"
+          y="${midY - 1}"
+          width="${shipH * 0.18}"
+          height="2"
+          fill="${palette.stripe}"
+          rx="1"
+        />
+      `
+      : '';
+
+  const turret2 =
+    len >= 4
+      ? `
+        <circle
+          cx="${shipLen * 0.88}"
+          cy="${midY}"
+          r="${shipH * 0.10}"
+          fill="${palette.deck}"
+          stroke="${palette.stripe}"
+          stroke-width="0.7"
+        />
+
+        <rect
+          x="${shipLen * 0.88}"
+          y="${midY - 1}"
+          width="${shipH * 0.14}"
+          height="2"
+          fill="${palette.stripe}"
+          rx="1"
+        />
+      `
+      : '';
+
+  // ---------------- PORTHOLES ----------------
+
+  const portholes = Array.from(
+    { length: Math.max(0, len - 1) },
+    (_, i) => {
+
+      const px =
+        bodyStart +
+        (i + 0.7) *
+        (shipLen * 0.70 - bodyStart) /
+        len;
+
+      return `
+        <circle
+          cx="${px}"
+          cy="${midY - shipH * 0.15}"
+          r="2.3"
+          fill="${palette.hull}"
+        />
+
+        <circle
+          cx="${px}"
+          cy="${midY - shipH * 0.15}"
+          r="1.3"
+          fill="${palette.window}"
+        />
+
+        <circle
+          cx="${px}"
+          cy="${midY + shipH * 0.15}"
+          r="2.3"
+          fill="${palette.hull}"
+        />
+
+        <circle
+          cx="${px}"
+          cy="${midY + shipH * 0.15}"
+          r="1.3"
+          fill="${palette.window}"
+        />
+      `;
+    }
+  ).join('');
+
+  // ---------------- CONTAINER ----------------
+
+  const visual = document.createElement('div');
+
+  visual.className = 'ship-visual';
+
+  visual.dataset.shipName = shipName;
+
+  visual.style.left =
+    `${pad + minX * (cellSize + gap)}px`;
+
+  visual.style.top =
+    `${pad + minY * (cellSize + gap)}px`;
+
+  visual.style.width =
+    `${shipWidth}px`;
+
+  visual.style.height =
+    `${shipHeight}px`;
+
+  /*
+   * Tàu ngang:
+   *     SVG không xoay.
+   *
+   * Tàu dọc:
+   *     SVG xoay 90 độ quanh chính tâm của nó.
+   */
+
+  const svgTransform =
+    horizontal
+      ? ''
+      : `rotate(90 ${svgWidth / 2} ${svgHeight / 2})`;
+
+  visual.innerHTML = `
+    <svg
+      width="${svgWidth}"
+      height="${svgHeight}"
+      viewBox="0 0 ${svgWidth} ${svgHeight}"
+      aria-hidden="true"
+      preserveAspectRatio="none"
+    >
+
+      <defs>
+
+        <linearGradient
+          id="${id}-hull"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="1"
+        >
+          <stop
+            offset="0%"
+            stop-color="${palette.stripe}"
+          />
+
+          <stop
+            offset="35%"
+            stop-color="${palette.deck}"
+          />
+
+          <stop
+            offset="100%"
+            stop-color="${palette.shadow}"
+          />
+        </linearGradient>
+
+        <linearGradient
+          id="${id}-sup"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="1"
+        >
+          <stop
+            offset="0%"
+            stop-color="${palette.window}"
+            stop-opacity="0.6"
+          />
+
+          <stop
+            offset="100%"
+            stop-color="${palette.deck}"
+          />
+        </linearGradient>
+
+      </defs>
+
+      <g transform="${svgTransform}">
+
+        <!-- shadow -->
+        <path
+          d="${hullPath}"
+          fill="${palette.shadow}"
+          transform="translate(2,3)"
+          opacity="0.55"
+        />
+
+        <!-- hull -->
+        <path
+          d="${hullPath}"
+          fill="url(#${id}-hull)"
+          stroke="${palette.hull}"
+          stroke-width="1"
+        />
+
+        <!-- hull highlight -->
+        <path
+          d="${hullPath}"
+          fill="none"
+          stroke="${palette.stripe}"
+          stroke-width="1"
+          opacity="0.45"
+        />
+
+        <!-- superstructure -->
+        <path
+          d="${supPath}"
+          fill="url(#${id}-sup)"
+          stroke="${palette.hull}"
+          stroke-width="0.8"
+          opacity="0.95"
+        />
+
+        <!-- bridge -->
+        <rect
+          x="${brX - brW / 2}"
+          y="${midY - brH / 2}"
+          width="${brW}"
+          height="${brH}"
+          rx="2"
+          fill="${palette.deck}"
+          stroke="${palette.stripe}"
+          stroke-width="0.7"
+        />
+
+        <rect
+          x="${brX - brW / 2 + 2}"
+          y="${midY - brH / 2 + 2}"
+          width="${Math.max(1, brW - 4)}"
+          height="${brH * 0.45}"
+          rx="1"
+          fill="${palette.window}"
+          opacity="0.85"
+        />
+
+        ${turrets}
+        ${turret2}
+        ${portholes}
+
+        <!-- antenna -->
+        <line
+          x1="${brX}"
+          y1="${midY - brH / 2}"
+          x2="${brX}"
+          y2="${midY - brH / 2 - shipH * 0.3}"
+          stroke="${palette.stripe}"
+          stroke-width="1.2"
+          opacity="0.75"
+        />
+
+        <circle
+          cx="${brX}"
+          cy="${midY - brH / 2 - shipH * 0.3}"
+          r="1.5"
+          fill="${palette.window}"
+        />
+
+      </g>
+
+    </svg>
+  `;
+
+  grid.appendChild(visual);
+
+  if (sunk) {
+    visual.classList.add('sunk');
   }
+}
 
   function shipPalette(name) {
     const palettes = {
