@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HẢI CHIẾN.io — Bắn thuyền trực tuyến</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Staatliches&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">⚓</span>
+    <span class="brand-name">HẢI CHIẾN<span class="brand-io">.io</span></span>
+  </div>
+  <div class="topbar-user" id="topbar-user" hidden>
+    <span class="user-name" id="user-name-display"></span>
+    <span class="user-stats" id="user-stats-display"></span>
+    <button class="btn-ghost" id="btn-logout">Đăng xuất</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===================== AUTH SCREEN ===================== -->
+  <section id="screen-auth" class="screen active">
+    <div class="panel auth-panel">
+      <div class="sonar-hero" aria-hidden="true">
+        <div class="sonar-sweep"></div>
+        <div class="sonar-ring r1"></div>
+        <div class="sonar-ring r2"></div>
+        <div class="sonar-ring r3"></div>
+        <div class="sonar-blip b1"></div>
+        <div class="sonar-blip b2"></div>
+        <div class="sonar-blip b3"></div>
+      </div>
+
+      <h1 class="headline">Điều khiển hạm đội.<br>Đánh chìm đối thủ.</h1>
+      <p class="subhead">Bắn thuyền trực tuyến 1&nbsp;chọi&nbsp;1, thời gian thực. Tạo tài khoản để lưu chiến tích.</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="login">Đăng nhập</button>
+        <button class="tab-btn" data-tab="register">Tạo tài khoản</button>
+      </div>
+
+      <form id="form-login" class="auth-form">
+        <label>Tên đăng nhập
+          <input type="text" id="login-username" autocomplete="username" required />
+        </label>
+        <label>Mật khẩu
+          <input type="password" id="login-password" autocomplete="current-password" required />
+        </label>
+        <p class="form-error" id="login-error"></p>
+        <button type="submit" class="btn-primary">Vào trận</button>
+      </form>
+
+      <form id="form-register" class="auth-form" hidden>
+        <label>Tên đăng nhập
+          <input type="text" id="register-username" autocomplete="username" minlength="3" maxlength="16" required />
+        </label>
+        <label>Mật khẩu
+          <input type="password" id="register-password" autocomplete="new-password" minlength="4" required />
+        </label>
+        <p class="form-error" id="register-error"></p>
+        <button type="submit" class="btn-primary">Tạo tài khoản &amp; vào trận</button>
+      </form>
+
+      <div class="divider"><span>hoặc</span></div>
+      <button class="btn-ghost btn-full" id="btn-guest">Chơi thử với tư cách khách</button>
+    </div>
+  </section>
+
+  <!-- ===================== LOBBY SCREEN ===================== -->
+  <section id="screen-lobby" class="screen">
+    <div class="panel lobby-panel">
+      <h2 class="section-title">Phòng chờ chỉ huy</h2>
+      <p class="lobby-sub">Sẵn sàng ra khơi khi bạn đã tập hợp đủ can đảm.</p>
+
+      <div id="lobby-idle">
+        <button class="btn-primary btn-lg" id="btn-find-match">Tìm trận đối kháng</button>
+      </div>
+
+      <div id="lobby-searching" hidden>
+        <div class="sonar-hero small" aria-hidden="true">
+          <div class="sonar-sweep"></div>
+          <div class="sonar-ring r1"></div>
+          <div class="sonar-ring r2"></div>
+        </div>
+        <p class="searching-text">Đang dò tìm đối thủ trên radar…</p>
+        <button class="btn-ghost" id="btn-cancel-queue">Hủy tìm trận</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PLACEMENT SCREEN ===================== -->
+  <section id="screen-placement" class="screen">
+    <div class="panel placement-panel">
+      <h2 class="section-title">Bố trí hạm đội</h2>
+      <p class="lobby-sub">Đối thủ: <strong id="placement-opponent-name">—</strong></p>
+
+      <div class="placement-body">
+        <div class="ship-tray" id="ship-tray"></div>
+
+        <div class="board-wrap">
+          <div class="board-labels-x" id="place-labels-x"></div>
+          <div class="board-with-y">
+            <div class="board-labels-y" id="place-labels-y"></div>
+            <div class="grid grid-place" id="grid-place"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="placement-actions">
+        <button class="btn-ghost" id="btn-rotate">↻ Xoay tàu (phím R)</button>
+        <button class="btn-ghost" id="btn-random-place">🎲 Xếp ngẫu nhiên</button>
+        <button class="btn-ghost" id="btn-reset-place">↺ Đặt lại</button>
+        <button class="btn-primary" id="btn-confirm-place" disabled>Sẵn sàng chiến đấu</button>
+      </div>
+      <p class="form-error" id="placement-error"></p>
+      <p class="waiting-note" id="placement-waiting" hidden>Đã sẵn sàng — đang chờ đối thủ bố trí hạm đội…</p>
+    </div>
+  </section>
+
+  <!-- ===================== BATTLE SCREEN ===================== -->
+  <section id="screen-battle" class="screen">
+    <div class="battle-header">
+      <div class="turn-indicator" id="turn-indicator">—</div>
+      <div class="vs-line">Bạn <span class="vs">vs</span> <strong id="battle-opponent-name">—</strong></div>
+    </div>
+
+    <div class="battle-boards">
+      <div class="board-col">
+        <h3 class="board-title">Vùng biển địch</h3>
+        <div class="board-wrap">
+          <div class="board-labels-x" id="enemy-labels-x"></div>
+          <div class="board-with-y">
+            <div class="board-labels-y" id="enemy-labels-y"></div>
+            <div class="grid grid-enemy" id="grid-enemy"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="board-col">
+        <h3 class="board-title">Hạm đội của bạn</h3>
+        <div class="board-wrap">
+          <div class="board-labels-x" id="own-labels-x"></div>
+          <div class="board-with-y">
+            <div class="board-labels-y" id="own-labels-y"></div>
+            <div class="grid grid-own" id="grid-own"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="battle-log-wrap">
+      <h4>Nhật ký giao tranh</h4>
+      <div class="battle-log" id="battle-log"></div>
+    </div>
+  </section>
+
+  <!-- ===================== GAME OVER SCREEN ===================== -->
+  <section id="screen-gameover" class="screen">
+    <div class="panel gameover-panel">
+      <div class="gameover-icon" id="gameover-icon">🏆</div>
+      <h2 class="section-title" id="gameover-title">Chiến thắng!</h2>
+      <p class="lobby-sub" id="gameover-sub"></p>
+      <button class="btn-primary btn-lg" id="btn-play-again">Chơi ván khác</button>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
