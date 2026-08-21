@@ -10,12 +10,12 @@
     losses: 0,
     socket: null,
     roomId: null,
+    pendingRoomCode: null,
     shipsToPlace: [],
     placedShips: {}, // name -> { cells: [[x,y]...] }
     selectedShip: null,
     orientation: 'h', // 'h' | 'v'
     myTurn: false,
-    ownShipCells: new Set(), // "x,y" for quick lookup during battle
   };
 
   // ---------------- Utility ----------------
@@ -142,8 +142,17 @@
       $('#lobby-searching').hidden = false;
     });
 
+    s.on('room_created', ({ code }) => {
+      state.pendingRoomCode = code;
+      $('#lobby-idle').hidden = true;
+      $('#lobby-room-waiting').hidden = false;
+      $('#room-code-display').textContent = code;
+    });
+
     s.on('matched', ({ roomId, ships, opponent }) => {
       state.roomId = roomId;
+      state.pendingRoomCode = null;
+      $('#lobby-room-waiting').hidden = true;
       state.shipsToPlace = ships;
       state.placedShips = {};
       state.selectedShip = null;
@@ -195,10 +204,34 @@
     $('#lobby-searching').hidden = true;
   });
 
+  $('#btn-create-room').addEventListener('click', () => {
+    state.socket.emit('create_room');
+  });
+
+  $('#btn-cancel-room').addEventListener('click', () => {
+    state.socket.emit('cancel_room');
+    state.pendingRoomCode = null;
+    $('#lobby-idle').hidden = false;
+    $('#lobby-room-waiting').hidden = true;
+  });
+
+  $('#btn-join-room').addEventListener('click', () => {
+    const code = $('#join-room-code').value.trim();
+    if (!code) return;
+    state.socket.emit('join_room', { code });
+  });
+
+  $('#join-room-code').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#btn-join-room').click();
+  });
+
   function resetToLobby() {
     state.roomId = null;
+    state.pendingRoomCode = null;
     $('#lobby-idle').hidden = false;
     $('#lobby-searching').hidden = true;
+    $('#lobby-room-waiting').hidden = true;
+    $('#join-room-code').value = '';
     showScreen('screen-lobby');
   }
 
@@ -325,13 +358,38 @@
   }
 
   function renderPlacedShips() {
-    $$('#grid-place .cell').forEach((c) => c.classList.remove('ship'));
-    Object.values(state.placedShips).forEach((ship) => {
+    $$('#grid-place .cell').forEach((c) => clearShipClasses(c));
+    Object.entries(state.placedShips).forEach(([name, ship]) => {
       ship.cells.forEach(([x, y]) => {
         const cell = gridCell('grid-place', x, y);
-        if (cell) cell.classList.add('ship');
+        if (cell) applyShipClasses(cell, name, ship.cells, x, y);
       });
     });
+  }
+
+  // Works out whether a ship cell is the bow, stern, or a middle segment so
+  // it can be drawn as a connected capsule shape instead of a plain square.
+  function shipSegmentInfo(cells, x, y) {
+    const horizontal = cells.every((c) => c[1] === cells[0][1]);
+    const sorted = horizontal
+      ? [...cells].sort((a, b) => a[0] - b[0])
+      : [...cells].sort((a, b) => a[1] - b[1]);
+    const idx = sorted.findIndex((c) => c[0] === x && c[1] === y);
+    let posClass = 'ship-mid';
+    if (idx === 0) posClass = 'ship-start';
+    else if (idx === sorted.length - 1) posClass = 'ship-end';
+    return { orientationClass: horizontal ? 'ship-h' : 'ship-v', posClass };
+  }
+
+  function applyShipClasses(cell, shipName, cells, x, y) {
+    const { orientationClass, posClass } = shipSegmentInfo(cells, x, y);
+    cell.classList.add('ship', orientationClass, posClass);
+    cell.dataset.ship = shipName;
+  }
+
+  function clearShipClasses(cell) {
+    cell.classList.remove('ship', 'ship-h', 'ship-v', 'ship-start', 'ship-mid', 'ship-end');
+    delete cell.dataset.ship;
   }
 
   $('#btn-rotate').addEventListener('click', () => {
@@ -405,15 +463,16 @@
 
     const ownGrid = $('#grid-own');
     ownGrid.innerHTML = '';
-    state.ownShipCells = new Set();
-    Object.values(state.placedShips).forEach((ship) => {
-      ship.cells.forEach(([x, y]) => state.ownShipCells.add(`${x},${y}`));
+    const ownCellShipMap = new Map();
+    Object.entries(state.placedShips).forEach(([name, ship]) => {
+      ship.cells.forEach(([x, y]) => ownCellShipMap.set(`${x},${y}`, { name, cells: ship.cells }));
     });
     for (let y = 0; y < BOARD_SIZE; y++) {
       for (let x = 0; x < BOARD_SIZE; x++) {
         const cell = document.createElement('div');
         cell.className = 'cell disabled';
-        if (state.ownShipCells.has(`${x},${y}`)) cell.classList.add('ship');
+        const info = ownCellShipMap.get(`${x},${y}`);
+        if (info) applyShipClasses(cell, info.name, info.cells, x, y);
         cell.dataset.x = x;
         cell.dataset.y = y;
         ownGrid.appendChild(cell);
@@ -430,7 +489,7 @@
     state.socket.emit('fire', { roomId: state.roomId, x, y });
   }
 
-  function handleFireResult({ x, y, isHit, sunkShip, gameOver, firedBy }) {
+  function handleFireResult({ x, y, isHit, sunkShip, gameOver, firedBy, revealShips }) {
     const gridId = firedBy === 'you' ? 'grid-enemy' : 'grid-own';
     const cell = gridCell(gridId, x, y);
     if (cell) {
@@ -450,6 +509,18 @@
       }
       setTurnIndicator();
     } else {
+      // The losing fleet is fully sunk — reveal where every ship was hiding.
+      // (revealShips is the losing side's layout, only meaningful on the
+      // winner's "enemy waters" board.)
+      if (firedBy === 'you' && Array.isArray(revealShips)) {
+        revealShips.forEach((ship) => {
+          ship.cells.forEach(([sx, sy]) => {
+            const enemyCell = gridCell('grid-enemy', sx, sy);
+            if (enemyCell) applyShipClasses(enemyCell, ship.name, ship.cells, sx, sy);
+          });
+        });
+      }
+
       const youWon = firedBy === 'you';
       if (state.username) {
         if (youWon) state.wins++; else state.losses++;

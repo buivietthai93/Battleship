@@ -83,6 +83,28 @@
 
       <div id="lobby-idle">
         <button class="btn-primary btn-lg" id="btn-find-match">Tìm trận đối kháng</button>
+
+        <div class="divider"><span>hoặc chơi với bạn bè</span></div>
+
+        <div class="room-actions">
+          <button class="btn-ghost btn-full" id="btn-create-room">Tạo phòng riêng</button>
+          <div class="join-room-row">
+            <input type="text" id="join-room-code" placeholder="Nhập mã phòng" maxlength="5" />
+            <button class="btn-ghost" id="btn-join-room">Vào phòng</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="lobby-room-waiting" hidden>
+        <div class="sonar-hero small" aria-hidden="true">
+          <div class="sonar-sweep"></div>
+          <div class="sonar-ring r1"></div>
+          <div class="sonar-ring r2"></div>
+        </div>
+        <p class="searching-text">Mã phòng của bạn:</p>
+        <div class="room-code-display" id="room-code-display">—</div>
+        <p class="searching-text">Gửi mã này cho bạn bè để họ vào phòng.</p>
+        <button class="btn-ghost" id="btn-cancel-room">Hủy phòng</button>
       </div>
 
       <div id="lobby-searching" hidden>

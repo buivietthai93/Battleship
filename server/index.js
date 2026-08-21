@@ -24,9 +24,34 @@ const io = new Server(server, { cors: { origin: '*' } });
 // this to Redis or similar.)
 let queue = []; // sockets waiting for an opponent
 const rooms = new Map(); // roomId -> room state
+const codeRooms = new Map(); // roomCode -> host socket (waiting for a second player)
 
 function makeRoomId() {
   return 'room_' + Math.random().toString(36).slice(2, 10);
+}
+
+function makeRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid confusion
+  let code;
+  do {
+    code = Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  } while (codeRooms.has(code));
+  return code;
+}
+
+function startGameBetween(p1, p2) {
+  const roomId = makeRoomId();
+  rooms.set(roomId, {
+    players: [p1, p2],
+    boards: [null, null],
+    ready: [false, false],
+    turn: 0,
+  });
+  p1.roomId = roomId;
+  p2.roomId = roomId;
+
+  p1.emit('matched', { roomId, ships: SHIPS, opponent: p2.user.username });
+  p2.emit('matched', { roomId, ships: SHIPS, opponent: p1.user.username });
 }
 
 function tryMatch() {
@@ -34,19 +59,7 @@ function tryMatch() {
     const p1 = queue.shift();
     const p2 = queue.shift();
     if (!p1.connected || !p2.connected) continue;
-
-    const roomId = makeRoomId();
-    rooms.set(roomId, {
-      players: [p1, p2],
-      boards: [null, null],
-      ready: [false, false],
-      turn: 0,
-    });
-    p1.roomId = roomId;
-    p2.roomId = roomId;
-
-    p1.emit('matched', { roomId, ships: SHIPS, opponent: p2.user.username });
-    p2.emit('matched', { roomId, ships: SHIPS, opponent: p1.user.username });
+    startGameBetween(p1, p2);
   }
 }
 
@@ -77,6 +90,45 @@ io.on('connection', (socket) => {
 
   socket.on('leave_queue', () => {
     queue = queue.filter((s) => s !== socket);
+  });
+
+  // ---- Play-with-a-friend via room code ----
+  socket.on('create_room', () => {
+    // Clean up any code this socket was already hosting.
+    for (const [code, host] of codeRooms.entries()) {
+      if (host === socket) codeRooms.delete(code);
+    }
+    const code = makeRoomCode();
+    codeRooms.set(code, socket);
+    socket.emit('room_created', { code });
+  });
+
+  socket.on('cancel_room', () => {
+    for (const [code, host] of codeRooms.entries()) {
+      if (host === socket) codeRooms.delete(code);
+    }
+  });
+
+  socket.on('join_room', ({ code }) => {
+    const normalized = String(code || '').trim().toUpperCase();
+    const host = codeRooms.get(normalized);
+
+    if (!host) {
+      socket.emit('error_msg', { message: 'Không tìm thấy phòng với mã này.' });
+      return;
+    }
+    if (host === socket) {
+      socket.emit('error_msg', { message: 'Bạn không thể tự vào phòng của chính mình.' });
+      return;
+    }
+    if (!host.connected) {
+      codeRooms.delete(normalized);
+      socket.emit('error_msg', { message: 'Chủ phòng đã rời đi. Thử tạo hoặc vào phòng khác.' });
+      return;
+    }
+
+    codeRooms.delete(normalized);
+    startGameBetween(host, socket);
   });
 
   socket.on('place_ships', ({ roomId, ships }) => {
@@ -146,6 +198,9 @@ io.on('connection', (socket) => {
         sunkShip,
         gameOver,
         firedBy: i === idx ? 'you' : 'opponent',
+        // Once the fleet is fully sunk, reveal its layout so both players
+        // can see where every ship was hiding.
+        revealShips: gameOver ? oppBoard.ships : null,
       });
     });
 
@@ -172,6 +227,9 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     queue = queue.filter((s) => s !== socket);
+    for (const [code, host] of codeRooms.entries()) {
+      if (host === socket) codeRooms.delete(code);
+    }
     if (socket.roomId) {
       const room = rooms.get(socket.roomId);
       if (room) {

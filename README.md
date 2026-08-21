@@ -14,9 +14,17 @@ Game bắn thuyền 1 chọi 1, chơi thời gian thực qua mạng, có hệ th
 
 - Đăng ký / đăng nhập tài khoản, hoặc chơi thử với tư cách khách
 - Ghép trận tự động: bấm "Tìm trận" là được nối với người chơi khác đang chờ
+- **Chơi với bạn bè bằng mã phòng:** bấm "Tạo phòng riêng" để nhận mã 5 ký
+  tự, gửi mã đó cho bạn bè để họ nhập vào ô "Vào phòng" và được ghép trực
+  tiếp với bạn
 - Bố trí hạm đội 5 tàu theo đúng luật Battleship cổ điển (server luôn kiểm tra
   lại vị trí tàu để tránh gian lận từ phía client)
+- Tàu được vẽ bằng hình dạng con nhộng liền mạch theo màu riêng cho từng
+  loại tàu, có hiệu ứng nổ khi bắn trúng và sóng nước lan tỏa khi bắn trượt
+- Sau khi trận đấu kết thúc, toàn bộ vị trí hạm đội của đối phương sẽ được
+  hiện ra trên khung "Vùng biển địch" để xem lại
 - Bắn theo lượt thời gian thực, có nhật ký giao tranh, báo khi đánh chìm tàu
+- Bắn trúng được bắn tiếp ngay, chỉ mất lượt khi bắn trượt
 - Lưu số trận thắng/thua vào cơ sở dữ liệu cho tài khoản đã đăng ký
 
 ## Chạy thử trên máy của bạn
