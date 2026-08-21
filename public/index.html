@@ -192,6 +192,31 @@
       <h2 class="section-title" id="gameover-title">Chiến thắng!</h2>
       <p class="lobby-sub" id="gameover-sub"></p>
       <button class="btn-primary btn-lg" id="btn-play-again">Chơi ván khác</button>
+
+      <h4 class="gameover-boards-title">Xem lại trận đấu</h4>
+      <div class="battle-boards">
+        <div class="board-col">
+          <h3 class="board-title">Hạm đội đối phương (đã lộ)</h3>
+          <div class="board-wrap">
+            <div class="board-labels-x" id="gameover-labels-x-enemy"></div>
+            <div class="board-with-y">
+              <div class="board-labels-y" id="gameover-labels-y-enemy"></div>
+              <div class="grid" id="gameover-grid-enemy"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board-col">
+          <h3 class="board-title">Hạm đội của bạn</h3>
+          <div class="board-wrap">
+            <div class="board-labels-x" id="gameover-labels-x-own"></div>
+            <div class="board-with-y">
+              <div class="board-labels-y" id="gameover-labels-y-own"></div>
+              <div class="grid" id="gameover-grid-own"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 

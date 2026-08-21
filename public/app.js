@@ -447,6 +447,8 @@
   function buildBattleScreen() {
     buildAxisLabels('enemy-labels-x', 'enemy-labels-y');
     buildAxisLabels('own-labels-x', 'own-labels-y');
+    buildAxisLabels('gameover-labels-x-enemy', 'gameover-labels-y-enemy');
+    buildAxisLabels('gameover-labels-x-own', 'gameover-labels-y-own');
 
     const enemyGrid = $('#grid-enemy');
     enemyGrid.innerHTML = '';
@@ -526,6 +528,10 @@
         if (youWon) state.wins++; else state.losses++;
         updateTopbar();
       }
+      // Snapshot both boards (with the reveal applied) so the player can
+      // still review them on the game-over screen, which isn't on a timer.
+      $('#gameover-grid-enemy').innerHTML = $('#grid-enemy').innerHTML;
+      $('#gameover-grid-own').innerHTML = $('#grid-own').innerHTML;
       setTimeout(() => showGameOver(youWon), 900);
     }
   }

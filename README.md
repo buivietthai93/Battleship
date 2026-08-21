@@ -22,7 +22,8 @@ Game bắn thuyền 1 chọi 1, chơi thời gian thực qua mạng, có hệ th
 - Tàu được vẽ bằng hình dạng con nhộng liền mạch theo màu riêng cho từng
   loại tàu, có hiệu ứng nổ khi bắn trúng và sóng nước lan tỏa khi bắn trượt
 - Sau khi trận đấu kết thúc, toàn bộ vị trí hạm đội của đối phương sẽ được
-  hiện ra trên khung "Vùng biển địch" để xem lại
+  hiện ra ngay trên màn hình kết quả (không giới hạn thời gian xem) để bạn
+  xem lại họ đã giấu tàu ở đâu
 - Bắn theo lượt thời gian thực, có nhật ký giao tranh, báo khi đánh chìm tàu
 - Bắn trúng được bắn tiếp ngay, chỉ mất lượt khi bắn trượt
 - Lưu số trận thắng/thua vào cơ sở dữ liệu cho tài khoản đã đăng ký

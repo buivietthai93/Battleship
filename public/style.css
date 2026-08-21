@@ -648,8 +648,17 @@ main {
 .battle-log .log-sunk { color: var(--brass); font-weight: 600; }
 
 /* ---------------- Game over ---------------- */
-.gameover-panel { max-width: 420px; margin: 0 auto; text-align: center; }
+.gameover-panel { max-width: 780px; margin: 0 auto; text-align: center; }
 .gameover-icon { font-size: 48px; margin-bottom: 6px; }
+
+.gameover-boards-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--foam-dim);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin: 32px 0 16px;
+}
 
 /* ---------------- Toast ---------------- */
 .toast {
