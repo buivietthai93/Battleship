@@ -663,7 +663,7 @@
           } else {
             showTurnBanner('LƯỢT ĐỐI THỦ', 'Đối thủ đang tấn công hạm đội của bạn...', 'orange');
           }
-        }, 1500);
+        }, 1000);
       } else if (firedBy === 'you') {
         // A hit earns another shot.
         state.myTurn = true;
