@@ -941,13 +941,26 @@
    *     SVG không xoay.
    *
    * Tàu dọc:
-   *     SVG xoay 90 độ quanh chính tâm của nó.
+   *     Toàn bộ thẻ <svg> được xoay 90 độ bằng CSS, quanh
+   *     đúng tâm của chính nó, rồi được canh giữa vào ô chứa
+   *     (.ship-visual) bằng kỹ thuật top/left 50% + translate(-50%,-50%).
+   *
+   *     LƯU Ý: trước đây phép xoay được gắn vào thẻ <g> bên
+   *     trong SVG (xoay nội dung vẽ), trong khi khung <svg>
+   *     bên ngoài vẫn giữ kích thước "nằm ngang" (svgWidth x
+   *     svgHeight) thay vì kích thước thật sau khi xoay. Vì
+   *     khung SVG không được canh giữa vào div cha (.ship-visual
+   *     có kích thước dọc: shipWidth x shipHeight), toàn bộ
+   *     hình tàu bị lệch khỏi các ô lưới — đây chính là lỗi
+   *     lệch hình ảnh. Xoay cả <svg> (không phải <g>) và canh
+   *     giữa nó vào div cha sẽ luôn cho kết quả đúng, bất kể
+   *     kích thước khung trước khi xoay.
    */
 
-  const svgTransform =
+  const svgCssTransform =
     horizontal
-      ? ''
-      : `rotate(90 ${svgWidth / 2} ${svgHeight / 2})`;
+      ? 'translate(-50%, -50%)'
+      : 'translate(-50%, -50%) rotate(90deg)';
 
   visual.innerHTML = `
     <svg
@@ -956,6 +969,7 @@
       viewBox="0 0 ${svgWidth} ${svgHeight}"
       aria-hidden="true"
       preserveAspectRatio="none"
+      style="position:absolute; top:50%; left:50%; transform-origin:center center; transform:${svgCssTransform};"
     >
 
       <defs>
@@ -1004,7 +1018,7 @@
 
       </defs>
 
-      <g transform="${svgTransform}">
+      <g>
 
         <!-- shadow -->
         <path
