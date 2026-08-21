@@ -59,4 +59,40 @@ function allCells(ships) {
   return set;
 }
 
-module.exports = { BOARD_SIZE, SHIPS, validatePlacement, allCells };
+// Generates a random, valid, non-overlapping ship layout — used to let the
+// AI opponent set up its fleet instantly without a human placing it.
+function randomShipPlacement() {
+  const occupied = new Set();
+  const ships = [];
+
+  for (const def of SHIPS) {
+    let placed = false;
+    let attempts = 0;
+    while (!placed && attempts < 500) {
+      attempts++;
+      const horizontal = Math.random() < 0.5;
+      const x = Math.floor(Math.random() * BOARD_SIZE);
+      const y = Math.floor(Math.random() * BOARD_SIZE);
+      const cells = Array.from({ length: def.size }, (_, i) =>
+        horizontal ? [x + i, y] : [x, y + i]
+      );
+      const valid = cells.every(([cx, cy]) => {
+        if (cx < 0 || cx >= BOARD_SIZE || cy < 0 || cy >= BOARD_SIZE) return false;
+        return !occupied.has(`${cx},${cy}`);
+      });
+      if (valid) {
+        cells.forEach(([cx, cy]) => occupied.add(`${cx},${cy}`));
+        ships.push({ name: def.name, cells });
+        placed = true;
+      }
+    }
+    if (!placed) {
+      // Astronomically unlikely with a 10x10 board, but never leave a gap.
+      return randomShipPlacement();
+    }
+  }
+
+  return ships;
+}
+
+module.exports = { BOARD_SIZE, SHIPS, validatePlacement, allCells, randomShipPlacement };

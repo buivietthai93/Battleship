@@ -8,7 +8,7 @@ const { Server } = require('socket.io');
 
 const db = require('./db');
 const { router: authRouter, JWT_SECRET } = require('./auth');
-const { SHIPS, validatePlacement, allCells } = require('./game');
+const { SHIPS, BOARD_SIZE, validatePlacement, allCells, randomShipPlacement } = require('./game');
 
 const app = express();
 app.use(cors());
@@ -63,6 +63,164 @@ function tryMatch() {
   }
 }
 
+// ---- AI opponent ("play vs computer") --------------------------------
+// A lightweight stand-in that behaves like a socket (has .emit/.connected)
+// so it can sit in room.players alongside a real player without any of the
+// existing room/turn/disconnect logic needing to special-case it.
+function createBotPlayer() {
+  return {
+    id: 'bot-' + Math.random().toString(36).slice(2, 8),
+    user: { id: null, username: 'Máy (AI)' },
+    connected: true,
+    emit: () => {},
+  };
+}
+
+// Classic "hunt and target" Battleship AI:
+// - Hunt mode: fire at a random cell nobody has fired at yet.
+// - On a hit, switch to target mode and probe the four neighbours.
+// - Once a second hit confirms an axis (row or column), keep firing along
+//   that line in the same direction until it misses or the ship sinks.
+// - On a miss while chasing a confirmed direction, jump to the opposite
+//   side of the original hit and continue from there.
+// - Once the ship sinks, forget everything and go back to hunting randomly.
+function createBotAI() {
+  return {
+    mode: 'hunt',
+    queue: [],
+    origin: null,
+    direction: null,
+
+    chooseShot(shotsReceived) {
+      const isFree = ([x, y]) =>
+        x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE && !shotsReceived.has(`${x},${y}`);
+
+      while (this.queue.length) {
+        const next = this.queue.shift();
+        if (isFree(next)) return next;
+      }
+
+      this.mode = 'hunt';
+      const candidates = [];
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        for (let y = 0; y < BOARD_SIZE; y++) {
+          if (isFree([x, y])) candidates.push([x, y]);
+        }
+      }
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    },
+
+    reportResult(x, y, isHit, sunk) {
+      if (sunk) {
+        this.mode = 'hunt';
+        this.queue = [];
+        this.origin = null;
+        this.direction = null;
+        return;
+      }
+
+      if (!isHit) {
+        if (this.mode === 'target' && this.direction && this.origin) {
+          const [dx, dy] = this.direction;
+          const back = [this.origin[0] - dx, this.origin[1] - dy];
+          this.direction = [-dx, -dy];
+          this.queue = [back];
+        }
+        return;
+      }
+
+      if (this.mode === 'hunt') {
+        this.mode = 'target';
+        this.origin = [x, y];
+        this.direction = null;
+        this.queue = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+      } else if (!this.direction && this.origin) {
+        this.direction = [x - this.origin[0], y - this.origin[1]];
+        const [dx, dy] = this.direction;
+        this.queue = [[x + dx, y + dy]];
+      } else if (this.direction) {
+        const [dx, dy] = this.direction;
+        this.queue = [[x + dx, y + dy]];
+      }
+    },
+  };
+}
+
+function scheduleBotShot(roomId) {
+  const delay = process.env.BOT_DELAY_MS
+    ? Number(process.env.BOT_DELAY_MS)
+    : 900 + Math.random() * 500;
+  setTimeout(() => {
+    const room = rooms.get(roomId);
+    if (!room || !room.isBot || room.turn !== 1) return;
+    const humanBoard = room.boards[0];
+    if (!humanBoard) return;
+
+    const [x, y] = room.botAI.chooseShot(humanBoard.shotsReceived);
+    const result = resolveShot(room, roomId, 1, x, y);
+    if (!result) return;
+    room.botAI.reportResult(x, y, result.isHit, !!result.sunkShip);
+
+    if (!result.gameOver && rooms.get(roomId) && rooms.get(roomId).turn === 1) {
+      // The bot hit something and earns another shot.
+      scheduleBotShot(roomId);
+    }
+  }, delay);
+}
+
+// Resolves a single shot against whichever board the shooter is targeting,
+// broadcasts the result, and updates turn/DB/room bookkeeping. Shared by
+// both the real 'fire' socket handler and the AI's own moves.
+function resolveShot(room, roomId, shooterIdx, x, y) {
+  const oppIdx = 1 - shooterIdx;
+  const oppBoard = room.boards[oppIdx];
+  if (!oppBoard) return null;
+
+  const key = `${x},${y}`;
+  if (oppBoard.shotsReceived.has(key)) return null;
+  oppBoard.shotsReceived.add(key);
+
+  const isHit = oppBoard.cellsRemaining.has(key);
+  if (isHit) oppBoard.cellsRemaining.delete(key);
+
+  let sunkShip = null;
+  let sunkShipCells = null;
+  if (isHit) {
+    const ship = oppBoard.ships.find((s) => s.cells.some((c) => c[0] === x && c[1] === y));
+    if (ship && ship.cells.every((c) => oppBoard.shotsReceived.has(`${c[0]},${c[1]}`))) {
+      sunkShip = ship.name;
+      sunkShipCells = ship.cells;
+    }
+  }
+
+  const gameOver = oppBoard.cellsRemaining.size === 0;
+
+  room.players.forEach((p, i) => {
+    p.emit('fire_result', {
+      x,
+      y,
+      isHit,
+      sunkShip,
+      sunkShipCells,
+      gameOver,
+      firedBy: i === shooterIdx ? 'you' : 'opponent',
+      revealShips: gameOver ? oppBoard.ships : null,
+    });
+  });
+
+  if (gameOver) {
+    const winner = room.players[shooterIdx].user;
+    const loser = room.players[oppIdx].user;
+    if (winner.id) db.incrementWins(winner.id);
+    if (loser.id) db.incrementLosses(loser.id);
+    rooms.delete(roomId);
+  } else if (!isHit) {
+    room.turn = oppIdx;
+  }
+
+  return { isHit, sunkShip, gameOver };
+}
+
 io.use((socket, next) => {
   const token = socket.handshake.auth && socket.handshake.auth.token;
   let user = null;
@@ -90,6 +248,25 @@ io.on('connection', (socket) => {
 
   socket.on('leave_queue', () => {
     queue = queue.filter((s) => s !== socket);
+  });
+
+  // ---- Play vs computer ----
+  socket.on('play_vs_ai', () => {
+    const roomId = makeRoomId();
+    const botPlayer = createBotPlayer();
+    const botShips = randomShipPlacement();
+
+    rooms.set(roomId, {
+      players: [socket, botPlayer],
+      boards: [null, { ships: botShips, shotsReceived: new Set(), cellsRemaining: allCells(botShips) }],
+      ready: [false, true],
+      turn: 0,
+      isBot: true,
+      botAI: createBotAI(),
+    });
+    socket.roomId = roomId;
+
+    socket.emit('matched', { roomId, ships: SHIPS, opponent: 'Máy (AI)' });
   });
 
   // ---- Play-with-a-friend via room code ----
@@ -169,53 +346,11 @@ io.on('connection', (socket) => {
     const idx = room.players.indexOf(socket);
     if (idx === -1 || room.turn !== idx) return;
 
-    const oppIdx = 1 - idx;
-    const oppBoard = room.boards[oppIdx];
-    if (!oppBoard) return;
+    const result = resolveShot(room, roomId, idx, x, y);
+    if (!result) return;
 
-    const key = `${x},${y}`;
-    if (oppBoard.shotsReceived.has(key)) return;
-    oppBoard.shotsReceived.add(key);
-
-    const isHit = oppBoard.cellsRemaining.has(key);
-    if (isHit) oppBoard.cellsRemaining.delete(key);
-
-    let sunkShip = null;
-    let sunkShipCells = null;
-    if (isHit) {
-      const ship = oppBoard.ships.find((s) => s.cells.some((c) => c[0] === x && c[1] === y));
-      if (ship && ship.cells.every((c) => oppBoard.shotsReceived.has(`${c[0]},${c[1]}`))) {
-        sunkShip = ship.name;
-        sunkShipCells = ship.cells;
-      }
-    }
-
-    const gameOver = oppBoard.cellsRemaining.size === 0;
-
-    room.players.forEach((p, i) => {
-      p.emit('fire_result', {
-        x,
-        y,
-        isHit,
-        sunkShip,
-        sunkShipCells,
-        gameOver,
-        firedBy: i === idx ? 'you' : 'opponent',
-        // Once the fleet is fully sunk, reveal its layout so both players
-        // can see where every ship was hiding.
-        revealShips: gameOver ? oppBoard.ships : null,
-      });
-    });
-
-    if (gameOver) {
-      const winner = room.players[idx].user;
-      const loser = room.players[oppIdx].user;
-      if (winner.id) db.incrementWins(winner.id);
-      if (loser.id) db.incrementLosses(loser.id);
-      rooms.delete(roomId);
-    } else if (!isHit) {
-      // Turn only passes to the opponent on a miss. A hit earns another shot.
-      room.turn = oppIdx;
+    if (room.isBot && !result.gameOver && room.turn === 1) {
+      scheduleBotShot(roomId);
     }
   });
 

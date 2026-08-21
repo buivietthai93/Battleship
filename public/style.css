@@ -259,6 +259,8 @@ main {
 .btn-full { width: 100%; }
 .btn-lg { padding: 15px 30px; font-size: 15px; }
 
+#btn-play-ai { margin-top: 12px; }
+
 /* ---------------- Sonar hero ---------------- */
 .sonar-hero {
   position: relative;

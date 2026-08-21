@@ -314,6 +314,10 @@
     state.socket.emit('join_queue');
   });
 
+  $('#btn-play-ai').addEventListener('click', () => {
+    state.socket.emit('play_vs_ai');
+  });
+
   $('#btn-cancel-queue').addEventListener('click', () => {
     state.socket.emit('leave_queue');
     $('#lobby-idle').hidden = false;
