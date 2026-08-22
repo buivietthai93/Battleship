@@ -663,7 +663,7 @@
           } else {
             showTurnBanner('LƯỢT ĐỐI THỦ', 'Đối thủ đang tấn công hạm đội của bạn...', 'orange');
           }
-        }, 1000);
+        }, 700);
       } else if (firedBy === 'you') {
         // A hit earns another shot.
         state.myTurn = true;
@@ -671,15 +671,23 @@
       }
       setTurnIndicator();
     } else {
-      // The losing fleet is fully sunk — reveal where every ship was hiding.
-      if (firedBy === 'you' && Array.isArray(revealShips)) {
+      // Fully reveal what this player's opponent had — every ship, even
+      // the ones never fired at — regardless of whether this player won.
+      if (Array.isArray(revealShips)) {
         revealShips.forEach((ship) => {
+          // Only show a ship as "sunk" if this player actually hit every
+          // one of its cells — otherwise it's simply being revealed intact.
+          const fullySunkByMe = ship.cells.every(([sx, sy]) => {
+            const c = gridCell('grid-enemy', sx, sy);
+            return c && c.classList.contains('hit');
+          });
+
           ship.cells.forEach(([sx, sy]) => {
             const enemyCell = gridCell('grid-enemy', sx, sy);
             if (enemyCell) applyShipClasses(enemyCell, ship.name, ship.cells, sx, sy);
           });
-          clearHitMarkers('grid-enemy', ship.cells);
-          addShipVisual('grid-enemy', ship.name, ship.cells, true);
+          if (fullySunkByMe) clearHitMarkers('grid-enemy', ship.cells);
+          addShipVisual('grid-enemy', ship.name, ship.cells, fullySunkByMe);
         });
       }
 

@@ -196,6 +196,14 @@ function resolveShot(room, roomId, shooterIdx, x, y) {
   const gameOver = oppBoard.cellsRemaining.size === 0;
 
   room.players.forEach((p, i) => {
+    // At game over, tell each player the full layout of THEIR opponent —
+    // not just whichever side happened to lose. The winner already got
+    // this via the old logic; now the loser gets to see the winner's
+    // fleet too, including ships/cells they never even fired at.
+    const revealShips = gameOver
+      ? (i === shooterIdx ? oppBoard.ships : room.boards[shooterIdx].ships)
+      : null;
+
     p.emit('fire_result', {
       x,
       y,
@@ -204,7 +212,7 @@ function resolveShot(room, roomId, shooterIdx, x, y) {
       sunkShipCells,
       gameOver,
       firedBy: i === shooterIdx ? 'you' : 'opponent',
-      revealShips: gameOver ? oppBoard.ships : null,
+      revealShips,
     });
   });
 
