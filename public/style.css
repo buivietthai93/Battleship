@@ -182,6 +182,10 @@ main {
   text-align: left;
 }
 
+.auth-form[hidden] {
+  display: none;
+}
+
 .auth-form label {
   font-size: 12px;
   color: var(--foam-dim);
@@ -994,4 +998,12 @@ main {
   .turn-banner-card { min-width: 0; width: 90vw; padding: 18px 20px; }
   .turn-banner-title { letter-spacing: 4px; }
   .turn-banner-sub { letter-spacing: 1px; }
+}
+
+/* Safety net: some elements set their own `display` (flex/grid/block),
+   which by CSS specificity rules can silently override the browser's
+   default `[hidden] { display: none }` behavior when both a class and the
+   hidden attribute have equal specificity. Force hidden to always win. */
+[hidden] {
+  display: none !important;
 }
