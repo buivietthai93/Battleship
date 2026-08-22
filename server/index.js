@@ -147,9 +147,7 @@ function createBotAI() {
 }
 
 function scheduleBotShot(roomId) {
-  const delay = process.env.BOT_DELAY_MS
-    ? Number(process.env.BOT_DELAY_MS)
-    : 900 + Math.random() * 500;
+  const delay = process.env.BOT_DELAY_MS ? Number(process.env.BOT_DELAY_MS) : 1500;
   setTimeout(() => {
     const room = rooms.get(roomId);
     if (!room || !room.isBot || room.turn !== 1) return;
